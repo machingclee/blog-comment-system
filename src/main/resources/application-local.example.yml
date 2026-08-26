@@ -1,0 +1,22 @@
+# Template for local-only configuration.
+# Copy to application-local.yml (git-ignored) and fill in real values, then run:
+#   mvn spring-boot:run -Dspring-boot.run.profiles=local
+spring:
+  datasource:
+    url: jdbc:postgresql://<host>:<port>/<database>?sslmode=require&currentSchema=blog_system
+    username: <db-username>
+    password: <db-password>
+
+app:
+  basic-auth:
+    # authentication only for "/api" routes to protect the page of detailed API documentation
+    username: <basic-auth-username>
+    password: <basic-auth-password>
+  ses:
+    from-address: noreply@<your-verified-ses-domain>
+    cc-addresses: ""
+
+google:
+  auth:
+    # simply for google login
+    client-id: <your-google-oauth-client-id>.apps.googleusercontent.com

@@ -1,0 +1,96 @@
+server:
+  port: 8080
+
+spring:
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+  application:
+    name: blog-comment-system
+  main:
+    # Faster Lambda / SnapStart-friendly startup; controllers still load on first use
+    lazy-initialization: true
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL connection. Schema is owned by the Prisma migrations in
+  # db/prisma (Hibernate runs with ddl-auto: none and never creates/alters
+  # tables). Every model lives in the "blog_system" schema.
+  #
+  # Credentials come from the DB_URL / DB_USERNAME / DB_PASSWORD environment
+  # variables. For local development, copy application-local.example.yml to
+  # application-local.yml (git-ignored) and run with the "local" profile:
+  #
+  #   mvn spring-boot:run -Dspring-boot.run.profiles=local
+  # ---------------------------------------------------------------------------
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # Tiny, on-demand pool for Lambda/SnapStart; never open connections eagerly
+      maximum-pool-size: 5
+      minimum-idle: 0
+
+  jpa:
+    # Don't keep an OSIV EntityManager open across web requests
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_schema: blog_system
+      # Scoped SQL logging / N+1 detection driven by @LogQuery (see common/aop/logging).
+      "[hibernate.session_factory.statement_inspector]": com.machingclee.blogcomment.common.aop.logging.LogQueryStatementInspector
+
+# ---------------------------------------------------------------------------
+# Google Sign-In (GSI). Client ID from Google Cloud Console → Credentials →
+# OAuth 2.0 Client ID (Web application). The same client the frontend uses.
+# Provided via the GOOGLE_CLIENT_ID environment variable.
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# HTTP Basic Auth for /api/** (no Spring Security — just an interceptor).
+# The browser shows its native login dialog on 401 + WWW-Authenticate: Basic.
+# Credentials come from the APP_BASIC_AUTH_USERNAME / APP_BASIC_AUTH_PASSWORD
+# environment variables.
+# ---------------------------------------------------------------------------
+app:
+  basic-auth:
+    username: ${APP_BASIC_AUTH_USERNAME}
+    password: ${APP_BASIC_AUTH_PASSWORD}
+  # ---------------------------------------------------------------------------
+  # Amazon SES (transactional outbound). From must be a verified SES identity
+  # (email or any address on a verified domain). Region must match where the
+  # identity was verified. Provided via the SES_FROM_ADDRESS / SES_CC_ADDRESSES
+  # environment variables.
+  # cc-addresses: always CC these (comma-separated). Sandbox: each must be verified.
+  # ---------------------------------------------------------------------------
+  ses:
+    region: ap-northeast-1
+    from-address: ${SES_FROM_ADDRESS}
+    cc-addresses: ${SES_CC_ADDRESSES:}
+
+google:
+  auth:
+    client-id: ${GOOGLE_CLIENT_ID}
+
+# ---------------------------------------------------------------------------
+# springdoc-openapi (Scalar UI + Swagger UI)
+# Scalar UI : /scalar
+# Swagger UI: /swagger-ui/index.html
+# OpenAPI   : /v3/api-docs
+# ---------------------------------------------------------------------------
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    # Keep Swagger UI available alongside the new Scalar UI default
+    enabled: true
+  # Scalar UI is the default in v3; served at /scalar
+
+logging:
+  level:
+    root: INFO
+    com.machingclee.blogcomment: DEBUG

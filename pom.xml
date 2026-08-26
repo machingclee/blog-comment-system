@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.7</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.machingclee</groupId>
+    <artifactId>blog-comment-system</artifactId>
+    <version>0.0.1</version>
+    <name>blog-comment-system</name>
+    <description>Blog comment system Spring Boot API on AWS Lambda</description>
+
+    <properties>
+        <java.version>25</java.version>
+        <aws.serverless.container.version>3.0.2</aws.serverless.container.version>
+        <aws.lambda.java.core.version>1.4.0</aws.lambda.java.core.version>
+        <aws.lambda.java.events.version>3.16.1</aws.lambda.java.events.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+    </properties>
+
+
+    <dependencies>
+        <dependency>
+            <groupId>com.machingclee</groupId>
+            <artifactId>domain-util</artifactId>
+            <version>0.2.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- AOP support for the @LogRequest / @LogQuery aspects (common/aop/logging).
+             Spring Boot 4 renamed the starter from spring-boot-starter-aop to
+             spring-boot-starter-aspectj. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
+
+        <!-- Google ID-token verification (GoogleIdTokenVerifier) for the commentsystem
+             POST endpoint. Explicit version — not managed by the Boot BOM. Uses
+             NetHttpTransport so no apache-httpclient extras; gson 2.13.2 from the
+             Boot BOM is compatible with google-http-client-gson. -->
+        <dependency>
+            <groupId>com.google.api-client</groupId>
+            <artifactId>google-api-client</artifactId>
+            <version>2.9.0</version>
+        </dependency>
+
+        <!-- AWS SES (SDK v2) for outbound notification email.
+             Default credential chain: env keys locally, Lambda execution role on AWS.
+             Keep only the SES module (not the full BOM uber-jar) for a smaller Lambda package. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ses</artifactId>
+            <version>2.31.50</version>
+        </dependency>
+
+        <!-- JPA + PostgreSQL. Versions are managed by the Spring Boot parent
+             (Hibernate 7.2, postgresql 42.7). Schema lives in the
+             "blog_system" schema and is owned by the Prisma migrations in
+             db/prisma — Hibernate runs with ddl-auto: none. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- domain-util compiles against Jackson 2 (com.fasterxml.jackson.databind
+             ObjectMapper for event/command payload serialization) but declares it
+             <optional>true>, so it is not transitive. Spring Boot 4's web starter
+             only ships Jackson 3 (tools.jackson), so Jackson 2 must be supplied by
+             the consumer. Version is managed by the Boot BOM's jackson-2-bom. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- springdoc-openapi v3 for Spring Boot 4 — Scalar UI (default) + Swagger UI.
+             Also provides io.swagger.v3.oas.annotations for domain-util's
+             ControllerCommandScanner /docs flows.
+             Scalar UI : /scalar
+             Swagger UI: /swagger-ui/index.html
+             OpenAPI 3 : /v3/api-docs                                     -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws.serverless</groupId>
+            <artifactId>aws-serverless-java-container-springboot4</artifactId>
+            <version>${aws.serverless.container.version}</version>
+            <exclusions>
+                <!-- Conflicts with domain-util's DocController inner classes;
+                     Afterburner's custom classloader cannot access package-private
+                     types. Excluding it falls back to standard Jackson ser. -->
+                <exclusion>
+                    <groupId>tools.jackson.module</groupId>
+                    <artifactId>jackson-module-afterburner</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-core</artifactId>
+            <version>${aws.lambda.java.core.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-events</artifactId>
+            <version>${aws.lambda.java.events.version}</version>
+        </dependency>
+
+        <!-- Jakarta Expression Language implementation — needed by Hibernate Validator
+             to build its ValidatorFactory (constraint message interpolation).
+             Explicitly declared so it survives exclusion in lambda.xml
+             (version managed by Spring Boot parent). -->
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-el</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Lombok (compile-time only; version managed by Spring Boot parent).
+             Excluded from the Lambda lib/ assembly below — see lambda.xml. -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- MapStruct: entity → nested DTO mapping (domain-util DTOMapper pattern). -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Spring Boot 4: MockMvc / web layer test support lives in a dedicated starter -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!--
+      GitHub Packages repository for com.machingclee:domain-util.
+      Authentication: ~/.m2/settings.xml must have a <server> with
+      <id>github</id>, your GitHub username, and a PAT (classic) with
+      read:packages scope as the password.
+      See https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry
+    -->
+
+
+    <build>
+        <finalName>function</finalName>
+        <plugins>
+            <!-- JDK 23+ disables implicit classpath annotation processing, so
+                 Lombok must be declared on the processor path explicitly
+                 (proc:full restores it). Without this, @Data/@Builder/@Setter
+                 etc. silently generate nothing and the build fails. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <proc>full</proc>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>0.2.0</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <!-- Keep spring-boot:run; skip fat-jar repackage (Lambda uses thin assembly). -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+              Lambda packaging: classes at jar root + runtime deps under lib/
+              (NOT Spring Boot's fat jar / BOOT-INF layout).
+              Tomcat is excluded — aws-serverless-java-container provides the servlet bridge.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.7.1</version>
+                <configuration>
+                    <descriptors>
+                        <descriptor>src/assembly/lambda.xml</descriptor>
+                    </descriptors>
+                    <finalName>function</finalName>
+                    <appendAssemblyId>false</appendAssemblyId>
+                    <attach>false</attach>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>lambda-package</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
