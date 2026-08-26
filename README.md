@@ -25,16 +25,16 @@ npm install
 No credentials are committed to this repo — the app reads them from
 environment variables:
 
-| Variable                  | Used for                                    |
-| ------------------------- | ------------------------------------------- |
-| `DB_URL`                  | PostgreSQL JDBC URL                         |
-| `DB_USERNAME`             | PostgreSQL user                             |
-| `DB_PASSWORD`             | PostgreSQL password                         |
-| `APP_BASIC_AUTH_USERNAME` | HTTP Basic Auth user for `/api/**`          |
-| `APP_BASIC_AUTH_PASSWORD` | HTTP Basic Auth password                    |
-| `GOOGLE_CLIENT_ID`        | Google Sign-In OAuth 2.0 client ID          |
-| `SES_FROM_ADDRESS`        | SES "from" address (verified identity)      |
-| `SES_CC_ADDRESSES`        | Optional comma-separated SES CC addresses   |
+| Variable                  | Used for                                  |
+| ------------------------- | ----------------------------------------- |
+| `DB_URL`                  | PostgreSQL JDBC URL                       |
+| `DB_USERNAME`             | PostgreSQL user                           |
+| `DB_PASSWORD`             | PostgreSQL password                       |
+| `APP_BASIC_AUTH_USERNAME` | HTTP Basic Auth user for `/api/**`        |
+| `APP_BASIC_AUTH_PASSWORD` | HTTP Basic Auth password                  |
+| `GOOGLE_CLIENT_ID`        | Google Sign-In OAuth 2.0 client ID        |
+| `SES_FROM_ADDRESS`        | SES "from" address (verified identity)    |
+| `SES_CC_ADDRESSES`        | Optional comma-separated SES CC addresses |
 
 ### Local development
 
@@ -47,19 +47,6 @@ cp src/main/resources/application-local.example.yml src/main/resources/applicati
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 curl http://localhost:8080/ping
 ```
-
-### Deploy
-
-`serverless.yml` / `serverless-prod.yml` are kept out of the repo (they carry
-stage-specific environment configuration). Point the npm scripts at your own
-copies and log in to Serverless Framework v4 first (`npx serverless login`).
-
-```bash
-npm run deploy        # dev (serverless.yml)
-```
-
-The package hook builds `target/function.jar` inside
-`maven:3.9.11-eclipse-temurin-25`.
 
 ## Project layout
 
@@ -77,4 +64,5 @@ The package hook builds `target/function.jar` inside
 - Package: `com.machingclee.blogcomment`
 - Deploy artifact is `target/function.jar` (classes + `lib/`), **not** a Boot fat jar.
 - Tomcat is excluded from the Lambda package; local `mvn spring-boot:run` still uses it.
+
 # blog-comment-system
